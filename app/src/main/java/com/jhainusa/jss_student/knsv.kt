@@ -58,12 +58,27 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.material3.DatePickerDefaults
+import androidx.compose.material3.rememberDateRangePickerState
+import androidx.compose.material3.TextButton
+import androidx.compose.material3.Button as M3Button
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import com.jhainusa.jss_student.RoomDatabase.DaySchedule
 import com.jhainusa.jss_student.RoomDatabase.MainVIewModel
 import com.jhainusa.jss_student.RoomDatabase.Schedule
 import java.util.Locale
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.material3.DatePickerDialog
+import androidx.compose.material3.DateRangePicker
+import androidx.compose.ui.draw.blur
+import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.ui.platform.LocalContext
+import com.jhainusa.jss_student.UserPref.UserPreferences
+import kotlinx.coroutines.launch
+import java.time.LocalDate
 import kotlin.math.absoluteValue
 
 val PrimaryColor = Color(0xFF262626)
@@ -142,6 +157,11 @@ fun AnimatedDialog(
 @Composable
 fun AddClassScreen(viewModel: MainVIewModel, subjectId: Int = -1, onDismiss: () -> Unit) {
     val jakartaFont = plusJak
+    val context = LocalContext.current
+    val coroutineScope = rememberCoroutineScope()
+    
+    val semesterStart by UserPreferences.getSemesterStartDate(context).collectAsState(initial = null)
+    val semesterEnd by UserPreferences.getSemesterEndDate(context).collectAsState(initial = null)
     
     val scheduleToEdit by if (subjectId != -1) {
         viewModel.observeSchedule(subjectId).observeAsState()
@@ -155,11 +175,22 @@ fun AddClassScreen(viewModel: MainVIewModel, subjectId: Int = -1, onDismiss: () 
 
     var subject by remember { mutableStateOf("") }
     var teacher by remember { mutableStateOf("") }
+    var roomNo by remember { mutableStateOf("") }
+    var initialPresent by remember { mutableStateOf("") }
+    var initialTotal by remember { mutableStateOf("") }
+    var initialStartDate by remember { mutableStateOf("") }
+    var initialEndDate by remember { mutableStateOf("") }
+    var showAttendanceDialog by remember { mutableStateOf(false) }
 
     LaunchedEffect(scheduleToEdit) {
         scheduleToEdit?.let {
             subject = it.subject
             teacher = it.teacher
+            roomNo = it.roomNo
+            initialPresent = it.initialPresent.toString()
+            initialTotal = it.initialTotal.toString()
+            initialStartDate = it.initialStartDate
+            initialEndDate = it.initialEndDate
             selectedDays.clear()
             it.scheduleday.forEach { daySched ->
                 val times = daySched.timing.split(" - ")
@@ -204,7 +235,21 @@ fun AddClassScreen(viewModel: MainVIewModel, subjectId: Int = -1, onDismiss: () 
 
         item {
             inputBox("Teacher Name", teacher, onValueChange = { teacher = it })
-            Spacer(modifier = Modifier.height(8.dp))
+        }
+
+        item {
+            inputBox("Room Number", roomNo, onValueChange = { roomNo = it })
+        }
+
+        item {
+            AttendanceCard(
+                attended = initialPresent,
+                total = initialTotal,
+                startDate = if (initialStartDate.isNotBlank()) initialStartDate else semesterStart,
+                endDate = if (initialEndDate.isNotBlank()) initialEndDate else semesterEnd,
+                onClick = { showAttendanceDialog = true }
+            )
+            Spacer(modifier = Modifier.height(16.dp))
         }
 
         item {
@@ -368,9 +413,14 @@ fun AddClassScreen(viewModel: MainVIewModel, subjectId: Int = -1, onDismiss: () 
                                 subjectId = scheduleToEdit?.subjectId ?: 0,
                                 subject = subject,
                                 teacher = teacher,
+                                roomNo = roomNo,
                                 scheduleday = schedules,
                                 color = scheduleToEdit?.color ?: assignColor(subject).value.toLong(),
-                                totalClasses = scheduleToEdit?.totalClasses ?: 0
+                                totalClasses = scheduleToEdit?.totalClasses ?: 0,
+                                initialPresent = initialPresent.toIntOrNull() ?: 0,
+                                initialTotal = initialTotal.toIntOrNull() ?: 0,
+                                initialStartDate = initialStartDate,
+                                initialEndDate = initialEndDate
                             )
                         )
                         onDismiss()
@@ -428,6 +478,388 @@ fun AddClassScreen(viewModel: MainVIewModel, subjectId: Int = -1, onDismiss: () 
                 showTimePicker = false
             },
             onDismiss = { showTimePicker = false }
+        )
+    }
+
+    if (showAttendanceDialog) {
+        AttendanceEditDialog(
+            initialAttended = initialPresent,
+            initialTotal = initialTotal,
+            initialStart = if (initialStartDate.isNotBlank()) initialStartDate else semesterStart,
+            initialEnd = if (initialEndDate.isNotBlank()) initialEndDate else semesterEnd,
+            onDismiss = { showAttendanceDialog = false },
+            onConfirm = { attended, total, start, end ->
+                initialPresent = attended
+                initialTotal = total
+                initialStartDate = start ?: ""
+                initialEndDate = end ?: ""
+                showAttendanceDialog = false
+            }
+        )
+    }
+}
+
+@RequiresApi(Build.VERSION_CODES.O)
+fun formatDateForDisplay(dateStr: String?): String {
+    if (dateStr.isNullOrBlank()) return ""
+    return try {
+        val date = java.time.LocalDate.parse(dateStr)
+        date.format(java.time.format.DateTimeFormatter.ofPattern("dd MMM yyyy"))
+    } catch (e: Exception) {
+        dateStr
+    }
+}
+
+@RequiresApi(Build.VERSION_CODES.O)
+@Composable
+fun AttendanceCard(
+    attended: String,
+    total: String,
+    startDate: String?,
+    endDate: String?,
+    onClick: () -> Unit
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(16.dp))
+            .background(Color(0xFFF8FAFC))
+            .border(1.dp, Color(0xFFE2E8F0), RoundedCornerShape(16.dp))
+            .clickable { onClick() }
+            .padding(16.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = "Previous  Class  Attendance",
+                fontFamily = plusJak,
+                fontWeight = FontWeight.SemiBold,
+                fontSize = 15.sp,
+                color = Color(0xFF0F172A)
+            )
+            Spacer(modifier = Modifier.height(2.dp))
+            Text(
+                text = "${attended.ifBlank { "0" }} attended  /  ${total.ifBlank { "0" }} total",
+                fontFamily = plusJak,
+                fontSize = 13.sp,
+                color = Color(0xFF64748B)
+            )
+            if (!startDate.isNullOrBlank() && !endDate.isNullOrBlank()) {
+                val formattedStart = formatDateForDisplay(startDate)
+                val formattedEnd = formatDateForDisplay(endDate)
+                Text(
+                    text = "Range: $formattedStart - $formattedEnd",
+                    fontFamily = plusJak,
+                    fontSize = 11.sp,
+                    color = Color(0xFF94A3B8)
+                )
+            }
+        }
+
+        Icon(
+            painter = painterResource(id = R.drawable.arrow_sm_right_svgrepo_com),
+            contentDescription = null,
+            modifier = Modifier.size(18.dp),
+            tint = Color(0xFF94A3B8)
+        )
+    }
+}
+
+@RequiresApi(Build.VERSION_CODES.O)
+@Composable
+fun AttendanceEditDialog(
+    initialAttended: String,
+    initialTotal: String,
+    initialStart: String?,
+    initialEnd: String?,
+    onDismiss: () -> Unit,
+    onConfirm: (String, String, String?, String?) -> Unit
+) {
+    var attended by remember { mutableStateOf(initialAttended) }
+    var total by remember { mutableStateOf(initialTotal) }
+    var startDate by remember { mutableStateOf(initialStart) }
+    var endDate by remember { mutableStateOf(initialEnd) }
+    var showRangePicker by remember { mutableStateOf(false) }
+    var errorMessage by remember { mutableStateOf<String?>(null) }
+
+    AnimatedDialog(showDialog = true, onDismiss = onDismiss) {
+        Column(modifier = Modifier.fillMaxWidth()) {
+            Text(
+                text = "Initial Attendance",
+                fontFamily = plusJak,
+                fontWeight = FontWeight.Bold,
+                fontSize = 20.sp,
+                modifier = Modifier.padding(bottom = 20.dp),
+                color = Color(0xFF0F172A)
+            )
+
+            androidx.compose.material.OutlinedTextField(
+                value = attended,
+                onValueChange = { 
+                    if (it.all { char -> char.isDigit() }) {
+                        attended = it
+                        errorMessage = null
+                    }
+                },
+                label = { Text("Classes Attended", fontFamily = plusJak) },
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(12.dp),
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                colors = TextFieldDefaults.outlinedTextFieldColors(
+                    focusedBorderColor = PrimaryColor,
+                    unfocusedBorderColor = OutlineColor,
+                    cursorColor = PrimaryColor
+                )
+            )
+            
+            Spacer(modifier = Modifier.height(12.dp))
+            
+            androidx.compose.material.OutlinedTextField(
+                value = total,
+                onValueChange = { 
+                    if (it.all { char -> char.isDigit() }) {
+                        total = it
+                        errorMessage = null
+                    }
+                },
+                label = { Text("Total Classes", fontFamily = plusJak) },
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(12.dp),
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                colors = TextFieldDefaults.outlinedTextFieldColors(
+                    focusedBorderColor = PrimaryColor,
+                    unfocusedBorderColor = OutlineColor,
+                    cursorColor = PrimaryColor
+                )
+            )
+
+            if (errorMessage != null) {
+                Text(
+                    text = errorMessage!!,
+                    color = Color.Red,
+                    fontSize = 12.sp,
+                    fontFamily = plusJak,
+                    modifier = Modifier.padding(top = 8.dp, start = 4.dp)
+                )
+            }
+
+            Spacer(modifier = Modifier.height(20.dp))
+
+            Text(
+                text = "Previous Class Range",
+                fontFamily = plusJak,
+                fontWeight = FontWeight.SemiBold,
+                fontSize = 14.sp,
+                color = Color.Gray,
+                modifier = Modifier.padding(bottom = 8.dp)
+            )
+            
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(12.dp))
+                    .background(Color(0xFFF1F5F9))
+                    .clickable { showRangePicker = true }
+                    .padding(14.dp)
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(
+                        painter = painterResource(id = R.drawable.calendar_svgrepo_com),
+                        contentDescription = null,
+                        modifier = Modifier.size(20.dp),
+                        tint = Color(0xFF64748B)
+                    )
+                    Spacer(modifier = Modifier.width(12.dp))
+                    val rangeText = if (!startDate.isNullOrBlank() && !endDate.isNullOrBlank()) {
+                        "${formatDateForDisplay(startDate)} - ${formatDateForDisplay(endDate)}"
+                    } else {
+                        "Select Previous Class Range"
+                    }
+                    Text(
+                        text = rangeText,
+                        fontFamily = plusJak,
+                        fontSize = 14.sp,
+                        color = Color(0xFF0F172A)
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.height(24.dp))
+
+            Button(
+                onClick = { 
+                    val attendedInt = attended.toIntOrNull() ?: 0
+                    val totalInt = total.toIntOrNull() ?: 0
+                    if (attendedInt > totalInt) {
+                        errorMessage = "Attended classes cannot be more than total classes"
+                    } else {
+                        onConfirm(attended, total, startDate, endDate)
+                    }
+                },
+                modifier = Modifier.fillMaxWidth().height(54.dp),
+                shape = RoundedCornerShape(14.dp),
+                colors = ButtonDefaults.buttonColors(
+                    backgroundColor = Color(0xFF0F172A),
+                    contentColor = Color.White
+                ),
+                elevation = ButtonDefaults.elevation(0.dp)
+            ) {
+                Text("Save Changes", color = Color.White, fontWeight = FontWeight.Bold, fontFamily = plusJak)
+            }
+        }
+    }
+
+    if (showRangePicker) {
+        val currentStart = try { LocalDate.parse(startDate) } catch(e: Exception) { LocalDate.now().minusDays(15) }
+        val currentEnd = try { LocalDate.parse(endDate) } catch(e: Exception) { LocalDate.now() }
+        
+        DateRangePickerDialog(
+            text = "Previous Attendance range",
+            initialStart = currentStart,
+            initialEnd = currentEnd,
+            onDismiss = { showRangePicker = false },
+            onRangeSelected = { start, end ->
+                startDate = start.toString()
+                endDate = end.toString()
+                showRangePicker = false
+            }
+        )
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@RequiresApi(Build.VERSION_CODES.O)
+@Composable
+fun DateRangePickerDialog(
+    text : String = "Filter by range",
+    initialStart: LocalDate,
+    initialEnd: LocalDate,
+    onDismiss: () -> Unit,
+    onRangeSelected: (LocalDate, LocalDate) -> Unit
+) {
+    val state = rememberDateRangePickerState(
+        initialSelectedStartDateMillis = initialStart
+            .atStartOfDay(java.time.ZoneOffset.UTC)
+            .toInstant()
+            .toEpochMilli(),
+        initialSelectedEndDateMillis = if (initialEnd.isBefore(initialStart)) {
+            initialStart.atStartOfDay(java.time.ZoneOffset.UTC).toInstant().toEpochMilli()
+        } else {
+            initialEnd.atStartOfDay(java.time.ZoneOffset.UTC).toInstant().toEpochMilli()
+        }
+    )
+    
+    val pickerColors = DatePickerDefaults.colors(
+        containerColor = MaterialTheme.colorScheme.background,
+        titleContentColor = MaterialTheme.colorScheme.onSurface,
+        headlineContentColor = MaterialTheme.colorScheme.onBackground,
+        weekdayContentColor = MaterialTheme.colorScheme.tertiary,
+        subheadContentColor = MaterialTheme.colorScheme.onBackground,
+        yearContentColor = MaterialTheme.colorScheme.onBackground,
+        currentYearContentColor = MaterialTheme.colorScheme.onBackground,
+        selectedYearContainerColor = MaterialTheme.colorScheme.onBackground,
+        selectedYearContentColor = MaterialTheme.colorScheme.background,
+        dayContentColor = MaterialTheme.colorScheme.tertiary,
+        disabledDayContentColor = Color.Gray.copy(alpha = 0.3f),
+        selectedDayContainerColor = MaterialTheme.colorScheme.onBackground,
+        selectedDayContentColor = MaterialTheme.colorScheme.background,
+        todayContentColor = MaterialTheme.colorScheme.onBackground,
+        todayDateBorderColor = MaterialTheme.colorScheme.onBackground,
+        dayInSelectionRangeContainerColor = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.1f),
+        dayInSelectionRangeContentColor = MaterialTheme.colorScheme.onBackground,
+        dividerColor = Color.Transparent
+    )
+
+    DatePickerDialog(
+        onDismissRequest = onDismiss,
+        confirmButton = {
+            M3Button(
+                onClick = {
+                    val start = state.selectedStartDateMillis?.let {
+                        java.time.Instant.ofEpochMilli(it)
+                            .atZone(java.time.ZoneOffset.UTC)
+                            .toLocalDate()
+                    } ?: initialStart
+
+                    val end = state.selectedEndDateMillis?.let {
+                        java.time.Instant.ofEpochMilli(it)
+                            .atZone(java.time.ZoneOffset.UTC)
+                            .toLocalDate()
+                    } ?: initialEnd
+                    onRangeSelected(start, end)
+                },
+                modifier = Modifier
+                    .padding(end = 16.dp, bottom = 12.dp)
+                    .height(44.dp),
+                colors = androidx.compose.material3.ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.onBackground),
+                shape = RoundedCornerShape(12.dp)
+            ) {
+                Text("Select Range",
+                    color = MaterialTheme.colorScheme.background,
+                    fontFamily = plusJak,
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 14.sp
+                )
+            }
+        },
+        shape = RoundedCornerShape(28.dp),
+        colors = pickerColors,
+        dismissButton = {
+            TextButton(
+                onClick = onDismiss,
+                modifier = Modifier.padding(bottom = 12.dp, end = 8.dp)
+            ) {
+                Text("Cancel",
+                    color = MaterialTheme.colorScheme.onSurface,
+                    fontFamily = plusJak,
+                    fontWeight = FontWeight.SemiBold,
+                    fontSize = 14.sp
+                )
+            }
+        }
+    ) {
+        DateRangePicker(
+            state = state,
+            modifier = Modifier.weight(1f),
+            colors = pickerColors,
+            showModeToggle = false,
+            title = {
+                Text(
+                    text = text,
+                    modifier = Modifier.padding(16.dp),
+                    fontFamily = plusJak,
+                    fontWeight = FontWeight.Bold
+                )
+            },
+            headline = {
+                val start = state.selectedStartDateMillis
+                val end = state.selectedEndDateMillis
+                if (start != null && end != null) {
+                    val formatter = java.time.format.DateTimeFormatter.ofPattern("MMM dd, yyyy")
+                    val startD = java.time.Instant.ofEpochMilli(start)
+                        .atZone(java.time.ZoneOffset.UTC)
+                        .toLocalDate()
+                    val endD = java.time.Instant.ofEpochMilli(end)
+                        .atZone(java.time.ZoneOffset.UTC)
+                        .toLocalDate()
+                    Text(
+                        text = "${startD.format(formatter)} - ${endD.format(formatter)}",
+                        modifier = Modifier.padding(horizontal = 16.dp),
+                        fontFamily = plusJak,
+                        fontSize = 18.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                } else {
+                    Text(
+                        text = "Start Date - End Date",
+                        modifier = Modifier.padding(horizontal = 16.dp),
+                        fontFamily = plusJak,
+                        fontSize = 18.sp,
+                        color = Color.Gray
+                    )
+                }
+            }
         )
     }
 }

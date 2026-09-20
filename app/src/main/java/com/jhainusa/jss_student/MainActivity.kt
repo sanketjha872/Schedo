@@ -51,6 +51,7 @@ import com.jhainusa.jss_student.ciaPaperPage.PaperListScreen
 import com.jhainusa.jss_student.ciaPaperPage.Papers
 import com.jhainusa.jss_student.ciaPaperPage.Routes
 import com.jhainusa.jss_student.ciaPaperPage.SemesterListScreen
+import com.jhainusa.jss_student.onboarding.AttendanceSetupScreen
 import com.jhainusa.jss_student.onboarding.DesiredAttendanceScreen
 import com.jhainusa.jss_student.onboarding.OnboardingScreen
 import com.jhainusa.jss_student.ui.theme.JSS_STUDENTTheme
@@ -87,6 +88,7 @@ class MainActivity : ComponentActivity() {
             val onboardingCompleted = UserPreferences.isOnboardingCompleted(this@MainActivity).first()
             val desiredAttendanceDone =
                 UserPreferences.isDesiredAttendanceDone(this@MainActivity).first()
+            val initialAttendanceDone = UserPreferences.isInitialAttendanceDone(this@MainActivity).first()
             val darkModeEnabled = UserPreferences.getDarkMode(this@MainActivity).first()
 
         setContent {
@@ -125,6 +127,7 @@ class MainActivity : ComponentActivity() {
             val startDest = when {
                 UserSession.name.isNullOrEmpty() -> "name_input"
                 !onboardingCompleted -> "onboarding"
+                !initialAttendanceDone -> "attendance_setup"
                 !desiredAttendanceDone -> "desired_attendance"
                 else -> "AllScreenNav"
             }
@@ -152,7 +155,7 @@ class MainActivity : ComponentActivity() {
                         onFinish = {
                             scope.launch {
                                 UserPreferences.setOnboardingCompleted(context, true)
-                                navController.navigate("desired_attendance") {
+                                navController.navigate("attendance_setup") {
                                     popUpTo("onboarding") { inclusive = true }
                                 }
                             }
@@ -160,9 +163,20 @@ class MainActivity : ComponentActivity() {
                         onSkip = {
                             scope.launch {
                                 UserPreferences.skipOnboarding(context)
+                                UserPreferences.setInitialAttendanceDone(context, true)
                                 navController.navigate("AllScreenNav") {
                                     popUpTo("onboarding") { inclusive = true }
                                 }
+                            }
+                        }
+                    )
+                }
+                composable("attendance_setup") {
+                    AttendanceSetupScreen(
+                        viewModel = viewModel,
+                        onFinish = {
+                            navController.navigate("desired_attendance") {
+                                popUpTo("attendance_setup") { inclusive = true }
                             }
                         }
                     )
@@ -290,7 +304,7 @@ fun AllScreenNav(viewModel: MainVIewModel, mainNav: NavController) {
             },
             modifier = Modifier.padding(innerPadding)
         ) {
-            composable(BottomNavItem.Home.route) { FullPAge(viewModel) }
+            composable(BottomNavItem.Home.route) { FullPAge(viewModel, mainNav) }
             composable(BottomNavItem.Exams.route) { Papers(mainNav) }
             composable(BottomNavItem.Graph.route) { TimeTable(viewModel) }
             composable(BottomNavItem.Setting.route) { UploadTimeTableScreen(viewModel,mainNav) }

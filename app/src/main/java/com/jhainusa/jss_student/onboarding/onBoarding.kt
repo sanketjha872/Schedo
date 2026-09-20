@@ -16,6 +16,7 @@ import androidx.compose.material.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.graphics.Color
@@ -362,7 +363,8 @@ fun UploadBox(modifier: Modifier = Modifier, onClick: () -> Unit) {
                     cornerRadius = CornerRadius(24.dp.toPx())
                 )
             }
-            .background(Color(0xFFF9FAFB), RoundedCornerShape(24.dp))
+            .clip(RoundedCornerShape(24.dp))
+            .background(Color(0xFFF9FAFB))
             .clickable { onClick() },
         contentAlignment = Alignment.Center
     ) {

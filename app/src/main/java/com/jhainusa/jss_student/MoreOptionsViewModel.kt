@@ -27,6 +27,9 @@ class MoreOptionsViewModel(application: Application) : AndroidViewModel(applicat
     private val _showAttendanceDialog = MutableStateFlow(false)
     val showAttendanceDialog = _showAttendanceDialog.asStateFlow()
 
+    private val _showNameDialog = MutableStateFlow(false)
+    val showNameDialog = _showNameDialog.asStateFlow()
+
     private val _feedbackType = MutableStateFlow("")
     val feedbackType = _feedbackType.asStateFlow()
 
@@ -47,6 +50,14 @@ class MoreOptionsViewModel(application: Application) : AndroidViewModel(applicat
         _showAttendanceDialog.value = false
     }
 
+    fun showNameDialog() {
+        _showNameDialog.value = true
+    }
+
+    fun dismissNameDialog() {
+        _showNameDialog.value = false
+    }
+
     fun toggleDarkMode(nameViewModel: NameViewModel, enabled: Boolean) {
         nameViewModel.setDarkMode(enabled)
     }
@@ -58,6 +69,11 @@ class MoreOptionsViewModel(application: Application) : AndroidViewModel(applicat
     fun saveDesiredAttendance(nameViewModel: NameViewModel, attendance: Float) {
         nameViewModel.saveDesiredAttendance(attendance)
         dismissAttendanceDialog()
+    }
+
+    fun saveName(nameViewModel: NameViewModel, name: String) {
+        nameViewModel.saveName(name)
+        dismissNameDialog()
     }
 
     fun submitFeedback(

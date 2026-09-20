@@ -54,4 +54,16 @@ class MainVIewModel(private val repository: ScheduleRepository) : ViewModel() {
             repository.updateExtraClassAttendance(classId, status)
         }
     }
+
+    fun updateInitialAttendance(subjectId: Int, present: Int, total: Int) {
+        viewModelScope.launch {
+            repository.updateInitialAttendance(subjectId, present, total)
+        }
+    }
+
+    fun markWholeDayAttendance(date: String, dayName: String, status: Int) {
+        viewModelScope.launch {
+            repository.markWholeDayAttendance(date, dayName, status)
+        }
+    }
 }

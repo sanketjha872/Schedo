@@ -1,5 +1,6 @@
 package com.jhainusa.jss_student.RoomDatabase
 
+import androidx.room.ColumnInfo
 import androidx.room.Entity
 import androidx.room.ForeignKey
 import androidx.room.Index
@@ -13,8 +14,17 @@ data class Schedule(
     val subject: String,
     val teacher : String,
     val color: Long = 0,
-    val totalClasses : Int = 0,
+    val totalClasses : Int = 0, // This is actually presentCount
+    @ColumnInfo(defaultValue = "")
     val roomNo: String = "",
+    @ColumnInfo(defaultValue = "0")
+    val initialPresent: Int = 0,
+    @ColumnInfo(defaultValue = "0")
+    val initialTotal: Int = 0,
+    @ColumnInfo(defaultValue = "")
+    val initialStartDate: String = "",
+    @ColumnInfo(defaultValue = "")
+    val initialEndDate: String = ""
 )
 
 @Entity(

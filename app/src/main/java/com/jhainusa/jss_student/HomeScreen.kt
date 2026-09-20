@@ -70,7 +70,8 @@ val plusJak = FontFamily(
 @RequiresApi(Build.VERSION_CODES.O)
 @Composable
 fun FullPAge(
-    viewModel: MainVIewModel
+    viewModel: MainVIewModel,
+    navController: NavController
 ) {
     val context = LocalContext.current
     val nameFlow = remember { UserPreferences.getName(context) }
@@ -87,20 +88,19 @@ fun FullPAge(
     val allAttendance by viewModel.getAllAttendance().observeAsState(emptyList())
 
     var showSubjectWiseDialog by remember { mutableStateOf(false) }
-    var showShareRundownCard by remember { mutableStateOf(false) }
-    var showShareSubjectCard by remember { mutableStateOf<SubjectAttendanceData?>(null) }
-    var capturedBitmap by remember { mutableStateOf<android.graphics.Bitmap?>(null) }
 
     val currentDay = remember {
         LocalDate.now().dayOfWeek.name.lowercase()
             .replaceFirstChar { it.uppercase() }.take(3) // "Mon", "Tue", etc.
     }
 
-    val attendanceData by remember(allAttendance, desiredAttendance) {
+    val attendanceData by remember(allAttendance, subjectsList, desiredAttendance) {
         derivedStateOf {
             val relevantAttendance = allAttendance.filter { it.attendanceStatus == 1 || it.attendanceStatus == 2 }
-            val totalMarked = relevantAttendance.size
-            val presentCount = relevantAttendance.count { it.attendanceStatus == 1 }
+            
+            val totalMarked = relevantAttendance.size + subjectsList.sumOf { it.initialTotal }
+            val presentCount = relevantAttendance.count { it.attendanceStatus == 1 } + subjectsList.sumOf { it.initialPresent }
+            
             val percentage = if (totalMarked > 0) (presentCount.toFloat() / totalMarked * 100).toInt() else 0
 
             val status = when {
@@ -125,10 +125,12 @@ fun FullPAge(
         derivedStateOf {
             subjectsList.map { subject ->
                 val subjectRecords = allAttendance.filter { it.subjectOwnerId == subject.subjectId && (it.attendanceStatus == 1 || it.attendanceStatus == 2) }
-                val totalMarked = subjectRecords.size
-                val presentCount = subjectRecords.count { it.attendanceStatus == 1 }
+                val totalMarked = subjectRecords.size + subject.initialTotal
+                val presentCount = subjectRecords.count { it.attendanceStatus == 1 } + subject.initialPresent
+
                 val percentage = if (totalMarked > 0) (presentCount.toFloat() / totalMarked * 100).toInt() else 0
                 SubjectAttendanceData(
+                    subjectId = subject.subjectId,
                     subjectName = subject.subject,
                     percentage = percentage,
                     totalClasses = totalMarked,
@@ -150,6 +152,7 @@ fun FullPAge(
                             subject = schedule.subject,
                             teacher = schedule.teacher,
                             time = daySchedule.timing,
+                            roomNo = schedule.roomNo,
                             color = Color(schedule.color.toULong())
                         )
                     }
@@ -175,7 +178,6 @@ fun FullPAge(
                     totalPercentage = "${attendanceData.first}%",
                     status = attendanceData.second,
                     onTotalClick = { showSubjectWiseDialog = true },
-                    onLongClick = { showShareRundownCard = true }
                 )
             }
         }
@@ -193,7 +195,8 @@ fun FullPAge(
                 desiredAttendance = desiredAttendance,
                 onDismiss = { showSubjectWiseDialog = false },
                 onItemClick = { subject ->
-                    showShareSubjectCard = subject
+                    showSubjectWiseDialog = false
+                    navController.navigate("bunk_analytics/${subject.subjectId}")
                 }
             )
         }
@@ -204,10 +207,12 @@ data class TodayClassItem(
     val subject: String,
     val teacher: String,
     val time: String,
+    val roomNo: String,
     val color: Color
 )
 
 data class SubjectAttendanceData(
+    val subjectId: Int,
     val subjectName: String,
     val percentage: Int,
     val totalClasses: Int,
@@ -316,7 +321,7 @@ fun TodayClassesSection(classes: List<TodayClassItem>, onClick : () -> Unit) {
                 modifier = Modifier
                     .padding(5.dp)
                     .clip(CircleShape)
-                    .background(Color(0xFFF7F5F5))
+                    .background(Color.White.copy(alpha = 0.8f))
                     .padding(8.dp)
                     .clickable(onClick = onClick)
             ) {
@@ -344,6 +349,7 @@ fun TodayClassesSection(classes: List<TodayClassItem>, onClick : () -> Unit) {
                     time = item.time,
                     teacher = item.teacher,
                     subject = item.subject,
+                    roomNo = item.roomNo,
                     icon = painterResource(R.drawable.baseline_code_24), // Default icon
                     color = item.color,
                     onColorChange = {}
@@ -358,6 +364,7 @@ fun classComp(
     time: String = "",
     teacher: String,
     subject: String,
+    roomNo : String = "",
     icon: Painter,
     color: Color,
     onColorChange: () -> Unit
@@ -390,7 +397,7 @@ fun classComp(
             )
             Spacer(modifier = Modifier.height(8.dp))
             Text(
-                text = time + "\t\t\t" + teacher,
+                text = time + "\t\t\t" + teacher + "\t\t\t" + roomNo,
                 fontFamily = plusJak,
                 fontSize = 12.sp,
                 color = Color.DarkGray
@@ -419,7 +426,6 @@ fun AttendanceOverview(
     totalPercentage: String,
     status: String,
     onTotalClick: () -> Unit,
-    onLongClick: () -> Unit
 ) {
     Row(
         modifier = Modifier.fillMaxWidth(),
@@ -434,7 +440,6 @@ fun AttendanceOverview(
                 .clip(RoundedCornerShape(32.dp))
                 .combinedClickable(
                     onClick = onTotalClick,
-                    onLongClick = onLongClick
                 )
         )
 
@@ -542,10 +547,7 @@ fun SubjectWiseAttendanceDialogContent(
                             .fillMaxWidth()
                             .clip(RoundedCornerShape(16.dp))
                             .background(item.color.copy(alpha = 0.3f))
-                            .combinedClickable(
-                                onClick = { /* Normal click can still open details if needed */ },
-                                onLongClick = { onItemClick(item) }
-                            )
+                            .clickable { onItemClick(item) }
                             .padding(16.dp),
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically

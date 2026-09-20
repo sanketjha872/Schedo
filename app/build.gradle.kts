@@ -17,7 +17,7 @@ android {
         applicationId = "com.jhainusa.jss_student"
         minSdk = 24
         targetSdk = 36
-        versionCode = 10
+        versionCode = 11
         versionName = "1.1"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
@@ -34,7 +34,8 @@ android {
 
     buildTypes {
         release {
-            isMinifyEnabled = false
+            isMinifyEnabled = true
+            isShrinkResources = true
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
@@ -127,7 +128,6 @@ dependencies {
 
 
     // Glance for App Widgets
-    implementation("androidx.glance:glance-appwidget:1.1.0")
     implementation("com.squareup.retrofit2:converter-scalars:2.9.0")
 
     implementation("com.google.accompanist:accompanist-placeholder-material:0.34.0")

@@ -319,6 +319,7 @@ fun UploadTimeTableScreen(viewModel: MainVIewModel, navController: NavController
     }
 }
 
+@RequiresApi(Build.VERSION_CODES.O)
 @Composable
 fun AttendanceHistoryDialog(
     viewModel: MainVIewModel,
@@ -374,8 +375,11 @@ fun AttendanceHistoryDialog(
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Column {
+                            val formattedDate = try {
+                                java.time.LocalDate.parse(record.date).format(java.time.format.DateTimeFormatter.ofPattern("dd MMM yyyy"))
+                            } catch (e: Exception) { record.date }
                             Text(
-                                text = record.date,
+                                text = formattedDate,
                                 fontFamily = plusJak,
                                 fontWeight = FontWeight.Medium,
                                 fontSize = 14.sp

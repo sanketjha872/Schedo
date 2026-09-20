@@ -13,7 +13,7 @@ val Pink40 = Color(0xFF7D5260)
 val black1a = Color(0xFF1A1A1A)
 
 val NavyText = Color(0xFF17203A)
-val SubtitleGray = Color(0xFF1C1C1D)
+val SubtitleGray = Color(0xFF2C2C2E)
 val AccentBlue = Color(0xFF5B8DEF)
 val TickGray = Color(0xFFC7CDDA)
 val GreenAccent = Color(0xFF2FB673)

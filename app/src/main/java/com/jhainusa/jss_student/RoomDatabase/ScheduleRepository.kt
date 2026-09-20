@@ -38,6 +38,29 @@ class ScheduleRepository(
         scheduleDao.deleteSubject(schedule)
     }
 
+    suspend fun updateInitialAttendance(subjectId: Int, present: Int, total: Int) {
+        scheduleDao.updateInitialAttendance(subjectId, present, total)
+    }
+
+    suspend fun markWholeDayAttendance(date: String, dayName: String, status: Int) {
+        // 1. Get all regular schedules
+        val allSchedules = scheduleDao.getAllSchedulesSync()
+        
+        // 2. Process regular classes for this day
+        for (schedule in allSchedules) {
+            val daySchedules = schedule.scheduleday.filter { it.day.startsWith(dayName, ignoreCase = true) }
+            for (daySchedule in daySchedules) {
+                updateAttendance(schedule.subjectId, date, dayName, status, daySchedule.timing)
+            }
+        }
+
+        // 3. Process extra classes already added for this day
+        val extraClasses = classScheduleDao.getAllSchedulesForDateSync(date).filter { it.isExtra }
+        for (extraClass in extraClasses) {
+            updateExtraClassAttendance(extraClass.classId, status)
+        }
+    }
+
     suspend fun updateAttendance(subjectId: Int, date: String, day: String, status: Int, timing: String) {
         val existing = classScheduleDao.getScheduleByTimingSync(subjectId, date, timing)
 

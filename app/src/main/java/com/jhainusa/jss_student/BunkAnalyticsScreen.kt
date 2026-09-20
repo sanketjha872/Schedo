@@ -22,7 +22,6 @@ import androidx.compose.runtime.*
 import androidx.compose.runtime.livedata.observeAsState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.tooling.preview.Preview
-import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
@@ -41,6 +40,7 @@ import com.jhainusa.jss_student.UserPref.UserPreferences
 import com.jhainusa.jss_student.ui.theme.JSS_STUDENTTheme
 import android.graphics.Bitmap
 import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import java.time.LocalDate
 import java.time.YearMonth
@@ -54,6 +54,8 @@ fun BunkAnalyticsScreen(viewModel: MainVIewModel, subjectId: Int) {
     val subject by viewModel.observeSchedule(subjectId).observeAsState()
     val attendanceHistory by viewModel.getAttendanceHistory(subjectId).observeAsState(emptyList())
     val desiredAttendance by UserPreferences.getDesiredAttendance(context).collectAsState(initial = 75f)
+    val prevStart by UserPreferences.getSemesterStartDate(context).collectAsState(initial = null)
+    val prevEnd by UserPreferences.getSemesterEndDate(context).collectAsState(initial = null)
 
     androidx.compose.runtime.LaunchedEffect(subjectId) {
         AnalyticsHelper.logScreenView("BunkAnalyticsScreen", "BunkAnalytics")
@@ -67,7 +69,13 @@ fun BunkAnalyticsScreen(viewModel: MainVIewModel, subjectId: Int) {
     BunkAnalyticsContent(
         subject = subject,
         attendanceHistory = attendanceHistory,
-        desiredAttendance = desiredAttendance
+        desiredAttendance = desiredAttendance,
+        prevRange = if (prevStart != null && prevEnd != null) {
+            try {
+                LocalDate.parse(prevStart!!) to LocalDate.parse(prevEnd!!)
+            } catch (e: Exception) { null }
+        } else null,
+        isOverall = subjectId == -1
     )
 }
 
@@ -76,7 +84,9 @@ fun BunkAnalyticsScreen(viewModel: MainVIewModel, subjectId: Int) {
 fun BunkAnalyticsContent(
     subject: Schedule?,
     attendanceHistory: List<ClassSchedule>,
-    desiredAttendance: Float
+    desiredAttendance: Float,
+    prevRange: Pair<LocalDate, LocalDate>? = null,
+    isOverall: Boolean = false
 ) {
     val threshold = desiredAttendance / 100.0
 
@@ -98,9 +108,54 @@ fun BunkAnalyticsContent(
     }
 
     val relevantAttendance = filteredAttendance.filter { it.attendanceStatus == 1 || it.attendanceStatus == 2 }
-    val totalClassesInRange = relevantAttendance.size
-    val attendedClassesInRange = relevantAttendance.count { it.attendanceStatus == 1 }
-    val missedClassesInRange = relevantAttendance.count { it.attendanceStatus == 2 }
+
+    val subjectStart = remember(subject) {
+        val sDate = subject?.initialStartDate
+        if (!sDate.isNullOrBlank()) {
+            try { LocalDate.parse(sDate) } catch (e: Exception) { null }
+        } else null
+    }
+    val subjectEnd = remember(subject) {
+        val eDate = subject?.initialEndDate
+        if (!eDate.isNullOrBlank()) {
+            try { LocalDate.parse(eDate) } catch (e: Exception) { null }
+        } else null
+    }
+
+    val finalRange = remember(prevRange, subjectStart, subjectEnd) {
+        if (subjectStart != null && subjectEnd != null) subjectStart to subjectEnd
+        else prevRange
+    }
+
+    val initialTotalInRange = remember(startDate, endDate, subject, finalRange) {
+        if (finalRange == null) 0
+        else {
+            val (pStart, pEnd) = finalRange
+            val overlapStart = if (startDate.isAfter(pStart)) startDate else pStart
+            val overlapEnd = if (endDate.isBefore(pEnd)) endDate else pEnd
+
+            if (!overlapStart.isAfter(overlapEnd)) {
+                subject?.initialTotal ?: 0
+            } else 0
+        }
+    }
+
+    val initialPresentInRange = remember(startDate, endDate, subject, finalRange) {
+        if (finalRange == null) 0
+        else {
+            val (pStart, pEnd) = finalRange
+            val overlapStart = if (startDate.isAfter(pStart)) startDate else pStart
+            val overlapEnd = if (endDate.isBefore(pEnd)) endDate else pEnd
+
+            if (!overlapStart.isAfter(overlapEnd)) {
+                subject?.initialPresent ?: 0
+            } else 0
+        }
+    }
+
+    val totalClassesInRange = relevantAttendance.size + initialTotalInRange
+    val attendedClassesInRange = relevantAttendance.count { it.attendanceStatus == 1 } + initialPresentInRange
+    val missedClassesInRange = relevantAttendance.count { it.attendanceStatus == 2 } + (initialTotalInRange - initialPresentInRange)
     val rangeAttendanceRate = if (totalClassesInRange > 0) (attendedClassesInRange.toDouble() / totalClassesInRange) else 0.0
     val rangeAttendanceRatePercent = (rangeAttendanceRate * 100).toInt()
 
@@ -117,7 +172,6 @@ fun BunkAnalyticsContent(
         predictionText = "In this period, you could miss $maxBunks more classes to stay above ${desiredAttendance.toInt()}%."
         predictionColor = Color(0xFFFBE7D7)
     } else {
-        // formula: (attended + x) / (total + x) >= threshold => attended + x >= threshold*total + threshold*x => (1-threshold)x >= threshold*total - attended => x >= (threshold*total - attended)/(1-threshold)
         val classesToAttend = if (totalClassesInRange > 0) {
             ceil((threshold * totalClassesInRange - attendedClassesInRange) / (1.0 - threshold)).toInt().coerceAtLeast(0)
         } else {
@@ -146,7 +200,7 @@ fun BunkAnalyticsContent(
                     )
                 Spacer(modifier = Modifier.height(9.dp))
                 Text(
-                    text = subject?.subject ?: "Loading...",
+                    text = if (subject == null) "Overall Analytics" else subject.subject,
                     color = MaterialTheme.colorScheme.onSurface,
                     fontFamily = plusJak,
                     fontWeight = FontWeight.Normal,
@@ -154,7 +208,9 @@ fun BunkAnalyticsContent(
                 )
             }
         },
-        modifier = Modifier.background(Color.White).statusBarsPadding(),
+        modifier = Modifier
+            .background(Color.White)
+            .statusBarsPadding(),
         containerColor = MaterialTheme.colorScheme.background,
     ) { innerPadding ->
         Column(
@@ -172,6 +228,7 @@ fun BunkAnalyticsContent(
 
             DateRangeFilterPresets(
                 minDate = minDate,
+                prevRange = finalRange,
                 onRangeSelected = { start, end ->
                     startDate = start
                     endDate = end
@@ -180,13 +237,16 @@ fun BunkAnalyticsContent(
                 currentEnd = endDate
             )
 
+            val isPrevRangeSelected = finalRange != null && startDate == finalRange.first && endDate == finalRange.second
             RangeSummarySection(
                 rate = "$rangeAttendanceRatePercent%",
                 attended = attendedClassesInRange.toString(),
                 missed = missedClassesInRange.toString(),
                 total = totalClassesInRange.toString(),
-                dateRangeText = "Showing: ${startDate.format(DateTimeFormatter.ofPattern("MMM d"))} - ${endDate.format(DateTimeFormatter.ofPattern("MMM d"))}",
-                onEditRange = { showStartDatePicker = true }
+                dateRangeText = "Showing: ${startDate.format(DateTimeFormatter.ofPattern("dd MMM yyyy"))} - ${endDate.format(DateTimeFormatter.ofPattern("dd MMM yyyy"))}",
+                onEditRange = { showStartDatePicker = true },
+                isPrevRangeSelected = isPrevRangeSelected,
+                isSubjectSpecific = subjectStart != null && subjectEnd != null
             )
 
             Spacer(modifier = Modifier.height(24.dp))
@@ -231,115 +291,6 @@ fun BunkAnalyticsContent(
         )
     }
 }
-
-@OptIn(ExperimentalMaterial3Api::class)
-@RequiresApi(Build.VERSION_CODES.O)
-@Composable
-fun DateRangePickerDialog(
-    initialStart: LocalDate,
-    initialEnd: LocalDate,
-    onDismiss: () -> Unit,
-    onRangeSelected: (LocalDate, LocalDate) -> Unit
-) {
-    val state = rememberDateRangePickerState(
-        initialSelectedStartDateMillis = initialStart.atStartOfDay(java.time.ZoneId.systemDefault()).toInstant().toEpochMilli(),
-        initialSelectedEndDateMillis = initialEnd.atStartOfDay(java.time.ZoneId.systemDefault()).toInstant().toEpochMilli()
-    )
-    
-    val pickerColors = DatePickerDefaults.colors(
-        containerColor = MaterialTheme.colorScheme.background,
-        titleContentColor = MaterialTheme.colorScheme.onSurface,
-        headlineContentColor = MaterialTheme.colorScheme.onBackground,
-        weekdayContentColor = MaterialTheme.colorScheme.tertiary,
-        subheadContentColor = MaterialTheme.colorScheme.onBackground,
-        yearContentColor = MaterialTheme.colorScheme.onBackground,
-        currentYearContentColor = MaterialTheme.colorScheme.onBackground,
-        selectedYearContainerColor = MaterialTheme.colorScheme.onBackground,
-        selectedYearContentColor = MaterialTheme.colorScheme.background,
-        dayContentColor = MaterialTheme.colorScheme.tertiary,
-        disabledDayContentColor = Color.Gray.copy(alpha = 0.3f),
-        selectedDayContainerColor = MaterialTheme.colorScheme.onBackground,
-        selectedDayContentColor = MaterialTheme.colorScheme.background,
-        todayContentColor = MaterialTheme.colorScheme.onBackground,
-        todayDateBorderColor = MaterialTheme.colorScheme.onBackground,
-        dayInSelectionRangeContainerColor = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.1f),
-        dayInSelectionRangeContentColor = MaterialTheme.colorScheme.onBackground,
-        dividerColor = Color.Transparent
-    )
-
-    DatePickerDialog(
-        onDismissRequest = onDismiss,
-        confirmButton = {
-            Button(
-                onClick = {
-                    val start = state.selectedStartDateMillis?.let { 
-                        java.time.Instant.ofEpochMilli(it).atZone(java.time.ZoneId.systemDefault()).toLocalDate()
-                    } ?: initialStart
-                    val end = state.selectedEndDateMillis?.let { 
-                        java.time.Instant.ofEpochMilli(it).atZone(java.time.ZoneId.systemDefault()).toLocalDate()
-                    } ?: initialEnd
-                    onRangeSelected(start, end)
-                },
-                modifier = Modifier
-                    .padding(end = 16.dp, bottom = 12.dp)
-                    .height(44.dp),
-                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.onBackground),
-                shape = RoundedCornerShape(12.dp)
-            ) {
-                Text("Select Range",
-                    color = MaterialTheme.colorScheme.background,
-                    fontFamily = plusJak,
-                    fontWeight = FontWeight.Bold,
-                    fontSize = 14.sp
-                )
-            }
-        },
-        shape = RoundedCornerShape(28.dp),
-        colors = pickerColors,
-        dismissButton = {
-            TextButton(
-                onClick = onDismiss,
-                modifier = Modifier.padding(bottom = 12.dp, end = 8.dp)
-            ) {
-                Text("Cancel",
-                    color = MaterialTheme.colorScheme.onSurface,
-                    fontFamily = plusJak,
-                    fontWeight = FontWeight.SemiBold,
-                    fontSize = 14.sp
-                )
-            }
-        }
-    ) {
-        Column(modifier = Modifier.padding(top = 16.dp)) {
-            DateRangePicker(
-                state = state,
-                modifier = Modifier.weight(1f),
-                colors = pickerColors,
-                title = {
-                    Text(
-                        text = "Filter by range",
-                        modifier = Modifier.padding(start = 24.dp, top = 16.dp),
-                        fontFamily = plusJak,
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 18.sp,
-                        color = MaterialTheme.colorScheme.onBackground
-                    )
-                },
-                headline = {
-                    DateRangePickerDefaults.DateRangePickerHeadline(
-                        selectedStartDateMillis = state.selectedStartDateMillis,
-                        selectedEndDateMillis = state.selectedEndDateMillis,
-                        displayMode = state.displayMode,
-                        dateFormatter = DatePickerDefaults.dateFormatter(),
-                        modifier = Modifier.padding(start = 24.dp, bottom = 12.dp,top = 5.dp)
-                    )
-                },
-                showModeToggle = false
-            )
-        }
-    }
-}
-
 @RequiresApi(Build.VERSION_CODES.O)
 @Composable
 fun AttendanceCalendarCard(
@@ -459,7 +410,9 @@ fun AttendanceCalendarCard(
 
         weeks.forEach { week ->
             Row(
-                modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(vertical = 4.dp),
                 horizontalArrangement = Arrangement.SpaceAround
             ) {
                 week.forEach { day ->
@@ -491,7 +444,7 @@ fun AttendanceCalendarCard(
                             )
 
                             val targetTextColor = when {
-                                attendanceList.isNotEmpty() -> Color.White
+                                attendanceList.isNotEmpty() -> MaterialTheme.colorScheme.onBackground
                                 !isWithinRange -> MaterialTheme.colorScheme.onSurface.copy(alpha = 0.65f)
                                 else -> MaterialTheme.colorScheme.tertiary
                             }
@@ -532,7 +485,6 @@ fun AttendanceCalendarCard(
                                             .padding(bottom = 4.dp),
                                         horizontalArrangement = Arrangement.spacedBy(2.dp)
                                     ) {
-                                        // Sort to show Present marks first, then Absent
                                         attendanceList.sortedBy { it.attendanceStatus }.take(4).forEach { cls ->
                                             Box(
                                                 modifier = Modifier
@@ -540,7 +492,7 @@ fun AttendanceCalendarCard(
                                                     .clip(CircleShape)
                                                     .background(
                                                         when (cls.attendanceStatus) {
-                                                            1 ->  Color(0xFF059F13) // Present
+                                                            1 -> Color(0xFF059F13) // Present
                                                             2 -> Color(0xF3C41616) // Absent
                                                             else -> Color(0xD81A4FF4)
                                                         }
@@ -560,7 +512,7 @@ fun AttendanceCalendarCard(
 
 @RequiresApi(Build.VERSION_CODES.O)
 @Composable
-fun RangeSummarySection(rate: String, attended: String, missed: String, total: String, dateRangeText: String, onEditRange: () -> Unit) {
+fun RangeSummarySection(rate: String, attended: String, missed: String, total: String, dateRangeText: String, onEditRange: () -> Unit, isPrevRangeSelected: Boolean = false, isSubjectSpecific: Boolean = false) {
     Column(modifier = Modifier.fillMaxWidth()) {
         Row(
             modifier = Modifier
@@ -572,7 +524,7 @@ fun RangeSummarySection(rate: String, attended: String, missed: String, total: S
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
+            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.weight(1f)) {
                 Icon(
                     Icons.Default.DateRange,
                     contentDescription = null,
@@ -580,12 +532,31 @@ fun RangeSummarySection(rate: String, attended: String, missed: String, total: S
                     tint = MaterialTheme.colorScheme.tertiary
                 )
                 Spacer(modifier = Modifier.width(8.dp))
-                Text(
-                    text = dateRangeText,
-                    fontSize = 14.sp,
-                    fontFamily = plusJak,
-                    color = MaterialTheme.colorScheme.tertiary
-                )
+                Column {
+                    Text(
+                        text = dateRangeText,
+                        fontSize = 14.sp,
+                        fontFamily = plusJak,
+                        color = MaterialTheme.colorScheme.tertiary
+                    )
+                    if (isPrevRangeSelected) {
+                        Spacer(modifier = Modifier.height(2.dp))
+                        Surface(
+                            shape = RoundedCornerShape(4.dp),
+                            color = MaterialTheme.colorScheme.secondaryContainer,
+                            modifier = Modifier.padding(top = 2.dp)
+                        ) {
+                            Text(
+                                text = if (isSubjectSpecific) "Subject Attendance Range" else "Previous Attendance",
+                                fontSize = 10.sp,
+                                fontFamily = plusJak,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.onSecondaryContainer,
+                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                            )
+                        }
+                    }
+                }
             }
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(
@@ -654,33 +625,45 @@ fun RangeSummarySection(rate: String, attended: String, missed: String, total: S
 @Composable
 fun DateRangeFilterPresets(
     minDate: LocalDate,
+    prevRange: Pair<LocalDate, LocalDate>? = null,
     onRangeSelected: (LocalDate, LocalDate) -> Unit,
     currentStart: LocalDate,
     currentEnd: LocalDate
 ) {
     val today = LocalDate.now()
-    val options = listOf(
-        "7D" to today.minusDays(7),
-        "1M" to today.minusMonths(1),
-        "3M" to today.minusMonths(3),
-        "ALL" to minDate
+    val options = mutableListOf(
+        "7D" to today.minusDays(7) to today,
+        "1M" to today.minusMonths(1) to today,
+        "3M" to today.minusMonths(3) to today,
     )
 
+    prevRange?.let {
+        options.add("PREV" to it.first to it.second)
+    }
+
+    options.add("ALL" to minDate to today)
+
     Row(
-        modifier = Modifier.fillMaxWidth().padding(bottom = 16.dp),
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(bottom = 16.dp),
         horizontalArrangement = Arrangement.spacedBy(8.dp)
     ) {
-        options.forEach { (label, start) ->
-            val isSelected = currentStart == start && currentEnd == today
+        options.forEach { (labelRange, range) ->
+            val (label, start) = labelRange
+            val end = range
+            val isSelected = currentStart == start && currentEnd == end
             val animatedColor by animateColorAsState(if (isSelected) MaterialTheme.colorScheme.onBackground else MaterialTheme.colorScheme.primaryContainer)
             val animatedContentColor by animateColorAsState(if (isSelected) MaterialTheme.colorScheme.background else MaterialTheme.colorScheme.tertiary)
             
             Surface(
-                onClick = { onRangeSelected(start, today) },
+                onClick = { onRangeSelected(start, end) },
                 shape = RoundedCornerShape(12.dp),
                 color = animatedColor,
                 contentColor = animatedContentColor,
-                modifier = Modifier.height(36.dp).weight(1f)
+                modifier = Modifier
+                    .height(36.dp)
+                    .weight(1f)
             ) {
                 Box(contentAlignment = Alignment.Center) {
                     Text(text = label, fontSize = 12.sp, fontWeight = FontWeight.Bold,
@@ -694,7 +677,7 @@ fun DateRangeFilterPresets(
 
 @Composable
 fun RangeSummaryItem(
-    modifier: Modifier = Modifier,
+    modifier : Modifier = Modifier,
     label: String,
     value: String,
     backgroundColor: Color,
@@ -737,7 +720,7 @@ fun RangeSummaryItem(
 
 @Composable
 fun StatsSmallCard(
-    modifier: Modifier = Modifier,
+    modifier : Modifier = Modifier,
     title: String,
     subtitle: String,
     icon: ImageVector,
@@ -754,7 +737,9 @@ fun StatsSmallCard(
         Icon(
             icon,
             contentDescription = null,
-            modifier = Modifier.padding(horizontal = 2.dp).size(24.dp),
+            modifier = Modifier
+                .padding(horizontal = 2.dp)
+                .size(24.dp),
             tint = PrimaryColor
         )
         Column(){
@@ -917,5 +902,3 @@ fun BunkAnalyticsPreview() {
         }
     }
 }
-
-

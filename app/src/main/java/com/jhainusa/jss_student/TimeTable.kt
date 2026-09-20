@@ -27,11 +27,15 @@ import androidx.compose.material.icons.automirrored.filled.KeyboardArrowLeft
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.automirrored.outlined.HelpOutline
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.MoreVert
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
@@ -47,12 +51,14 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.Font
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.unit.DpOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.jhainusa.jss_student.RoomDatabase.MainVIewModel
@@ -73,8 +79,11 @@ fun TimeTable(vIewModel : MainVIewModel){
     var selectedDate by remember { mutableStateOf(LocalDate.now()) }
     var showExtraClassSheet by remember { mutableStateOf(false) }
     var showHowToUseSheet by remember { mutableStateOf(false) }
+    var showMarkDaySheet by remember { mutableStateOf(false) }
+    var menuExpanded by remember { mutableStateOf(false) }
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     val howToUseSheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+    val markDaySheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
 
     androidx.compose.runtime.LaunchedEffect(Unit) {
         AnalyticsHelper.logScreenView("TimeTableScreen", "TimeTable")
@@ -98,26 +107,101 @@ fun TimeTable(vIewModel : MainVIewModel){
                 modifier = Modifier.weight(1f)
             )
             IconButton(
-                onClick = { showHowToUseSheet = true },
-                modifier = Modifier.padding(end = 15.dp)
-            ) {
+                    onClick = { menuExpanded = true },
+                    modifier = Modifier.padding(end = 10.dp)
+                        .size(24.dp)
+                        .shadow(
+                            elevation = 2.dp,
+                            shape = CircleShape,
+                            spotColor = Color(0xFF1F1E1E),
+                            ambientColor = Color(0xFF9F9999)
+                        )
+                        .background(
+                            color = MaterialTheme.colorScheme.background,
+                            shape = CircleShape
+                        ),
+                ) {
                 Icon(
-                    imageVector = Icons.AutoMirrored.Outlined.HelpOutline,
-                    contentDescription = "How to use",
-                    tint = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.7f)
+                    painter = painterResource(R.drawable.menu_hamburger_svgrepo_com),
+                    contentDescription = "More Options",
+                    tint = MaterialTheme.colorScheme.onBackground
                 )
-            }
-            IconButton(
-                onClick = { showExtraClassSheet = true },
-                modifier = Modifier
-                    .clip(CircleShape)
-                    .background(MaterialTheme.colorScheme.onBackground)
-            ) {
-                Icon(
-                    imageVector = Icons.Default.Add,
-                    contentDescription = "Add Extra Class",
-                    tint = MaterialTheme.colorScheme.background,
-                )
+                DropdownMenu(
+                    offset = DpOffset(x= 10.dp,y=0.dp),
+                    expanded = menuExpanded,
+                    tonalElevation = 10.dp,
+                    shadowElevation = 10.dp,
+                    onDismissRequest = { menuExpanded = false },
+                    shape = RoundedCornerShape(22.dp),
+                    modifier = Modifier.background(MaterialTheme.colorScheme.background)
+                ) {
+                    DropdownMenuItem(
+                        text = {
+                            Text(
+                                "How to Use",
+                                color = MaterialTheme.colorScheme.primary,
+                                fontSize = 15.sp,
+                                fontFamily = plusJak,
+                            )
+                        },
+                        leadingIcon = {
+                            Icon(
+                                painter = painterResource(R.drawable.question_mark_svgrepo_com),
+                                contentDescription = null,
+                                modifier = Modifier.size(20.dp),
+                                tint = MaterialTheme.colorScheme.primary
+                            )
+                        },
+                        onClick = {
+                            menuExpanded = false
+                            showHowToUseSheet = true
+                        }
+                    )
+                    DropdownMenuItem(
+                        text = {
+                            Text(
+                                "Mark Whole Day",
+                                color = MaterialTheme.colorScheme.primary,
+                                fontSize = 15.sp,
+                                fontFamily = plusJak,
+                            )
+                        },
+                        leadingIcon = {
+                            Icon(
+                                painter = painterResource(R.drawable.doublecheck),
+                                contentDescription = null,
+                                modifier = Modifier.size(20.dp),
+                                tint = MaterialTheme.colorScheme.primary
+                            )
+                        },
+                        onClick = {
+                            menuExpanded = false
+                            showMarkDaySheet = true
+                        }
+                    )
+                    DropdownMenuItem(
+                        text = {
+                            Text(
+                                "Add Extra Class",
+                                color = MaterialTheme.colorScheme.primary,
+                                fontSize = 15.sp,
+                                fontFamily = plusJak,
+                            )
+                        },
+                        leadingIcon = {
+                            Icon(
+                                imageVector = Icons.Default.Add,
+                                contentDescription = null,
+                                modifier = Modifier.size(20.dp),
+                                tint = MaterialTheme.colorScheme.primary
+                            )
+                        },
+                        onClick = {
+                            menuExpanded = false
+                            showExtraClassSheet = true
+                        }
+                    )
+                }
             }
         }
         Spacer(modifier = Modifier.height(2.dp))
@@ -164,6 +248,129 @@ fun TimeTable(vIewModel : MainVIewModel){
         ) {
             HowToUseScreen(onDismiss = { showHowToUseSheet = false })
         }
+    }
+
+    if (showMarkDaySheet) {
+        ModalBottomSheet(
+            onDismissRequest = { showMarkDaySheet = false },
+            sheetState = markDaySheetState,
+            containerColor = MaterialTheme.colorScheme.background,
+            shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp)
+        ) {
+            MarkDayBottomSheet(
+                selectedDate = selectedDate,
+                onMark = { status ->
+                    val dayName = selectedDate.dayOfWeek.name.lowercase()
+                        .replaceFirstChar { it.uppercase() }.take(3)
+                    vIewModel.markWholeDayAttendance(selectedDate.toString(), dayName, status)
+
+                    AnalyticsHelper.logEvent("mark_whole_day", android.os.Bundle().apply {
+                        putString("date", selectedDate.toString())
+                        putInt("status", status)
+                    })
+                },
+                onDismiss = { showMarkDaySheet = false }
+            )
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@RequiresApi(Build.VERSION_CODES.O)
+@Composable
+fun MarkDayBottomSheet(
+    selectedDate: LocalDate,
+    onMark: (Int) -> Unit,
+    onDismiss: () -> Unit
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(24.dp)
+    ) {
+        Text(
+            text = "Mark Whole Day",
+            fontFamily = plusJak,
+            fontSize = 20.sp,
+            fontWeight = FontWeight.Bold,
+            color = MaterialTheme.colorScheme.onBackground
+        )
+        Text(
+            text = "For $selectedDate",
+            fontFamily = plusJak,
+            fontSize = 14.sp,
+            color = Color.Gray
+        )
+        Spacer(modifier = Modifier.height(24.dp))
+
+        MarkDayOption(
+            title = "All Present",
+            icon = R.drawable.baseline_check_24,
+            color = Color(0xFF4CAF50),
+            onClick = { onMark(1); onDismiss() }
+        )
+        MarkDayOption(
+            title = "All Absent",
+            icon = R.drawable.cancel_svgrepo_com,
+            color = Color(0xFFF44336),
+            onClick = { onMark(2); onDismiss() }
+        )
+        MarkDayOption(
+            title = "Holiday / No Classes",
+            icon = R.drawable.happyy,
+            color = Color(0xFF2196F3),
+            onClick = { onMark(3); onDismiss() }
+        )
+        MarkDayOption(
+            title = "Clear All",
+            icon = R.drawable.baseline_code_24,
+            color = Color.Gray,
+            onClick = { onMark(0); onDismiss() }
+        )
+
+        Spacer(modifier = Modifier.height(24.dp))
+    }
+}
+
+@Composable
+fun MarkDayOption(
+    title: String,
+    icon: Int,
+    color: Color,
+    onClick: () -> Unit
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 8.dp)
+            .clip(RoundedCornerShape(16.dp))
+            .background(color.copy(alpha = 0.1f))
+            .clickable(onClick = onClick)
+            .padding(16.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Box(
+            modifier = Modifier
+                .size(40.dp)
+                .clip(CircleShape)
+                .background(color),
+            contentAlignment = Alignment.Center
+        ) {
+            Icon(
+                painter = painterResource(icon),
+                contentDescription = null,
+                tint = Color.White,
+                modifier = Modifier.size(24.dp)
+            )
+        }
+        Spacer(modifier = Modifier.width(16.dp))
+        Text(
+            text = title,
+            fontFamily = plusJak,
+            fontSize = 16.sp,
+            fontWeight = FontWeight.Medium,
+            color = MaterialTheme.colorScheme.onBackground
+        )
     }
 }
 
@@ -633,14 +840,24 @@ fun ScheduleItemRow(
                 }
 
                 Spacer(modifier = Modifier.height(24.dp))
-
-                Text(
-                    text = schedule.subject,
-                    fontFamily = FontFamily(Font(R.font.plusjakartasansbold)),
-                    fontWeight = FontWeight.Bold,
-                    fontSize = 18.sp,
-                    color = Color.Black
-                )
+                Row(verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.Center) {
+                    Text(
+                        text = schedule.subject,
+                        fontFamily = FontFamily(Font(R.font.plusjakartasansbold)),
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 18.sp,
+                        modifier = Modifier.weight(1f),
+                        color = Color.Black
+                    )
+                    Text(
+                        text = schedule.roomNo,
+                        fontFamily = plusJak,
+                        fontSize = 13.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = Color.DarkGray
+                    )
+                }
                 
                 if (attendanceStatus != 0) {
                     Spacer(modifier = Modifier.height(4.dp))

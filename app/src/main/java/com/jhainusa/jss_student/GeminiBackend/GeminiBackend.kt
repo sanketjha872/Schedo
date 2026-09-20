@@ -41,6 +41,7 @@ fun sendImageToSupabase(
                     val jsonArray = JSONArray(response.body())
                     val subjectsMap = mutableMapOf<String, MutableList<DaySchedule>>()
                     val teachersMap = mutableMapOf<String, String>()
+                    val roomsMap = mutableMapOf<String, String>()
 
                     for (i in 0 until jsonArray.length()) {
                         val item = jsonArray.getJSONObject(i)
@@ -48,10 +49,12 @@ fun sendImageToSupabase(
                         val time = item.getString("time")
                         val subject = item.getString("subject")
                         val teacher = item.optString("teacher", "")
+                        val roomNo = item.optString("roomNo", "")
 
                         if (!subjectsMap.containsKey(subject)) {
                             subjectsMap[subject] = mutableListOf()
                             teachersMap[subject] = teacher
+                            roomsMap[subject] = roomNo
                         }
                         subjectsMap[subject]?.add(DaySchedule(day, time))
                     }
@@ -61,6 +64,7 @@ fun sendImageToSupabase(
                             Schedule(
                                 subject = name,
                                 teacher = teachersMap[name] ?: "",
+                                roomNo = roomsMap[name] ?: "",
                                 scheduleday = schedules,
                                 color = assignColor(name).value.toLong()
                             )

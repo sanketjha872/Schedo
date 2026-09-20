@@ -18,6 +18,9 @@ interface ScheduleDao {
     @Query("SELECT * FROM subject ORDER BY subject ASC")
     fun getAllSchedules(): Flow<List<Schedule>>
 
+    @Query("SELECT * FROM subject")
+    suspend fun getAllSchedulesSync(): List<Schedule>
+
     @Query("SELECT * FROM subject WHERE subjectId = :id")
     fun observeSchedule(id: Int): Flow<Schedule>
 
@@ -26,6 +29,9 @@ interface ScheduleDao {
 
     @Query("UPDATE subject SET totalClasses = totalClasses - 1 WHERE subjectId = :subjectId")
     suspend fun decrementTotal(subjectId: Int)
+
+    @Query("UPDATE subject SET initialPresent = :present, initialTotal = :total WHERE subjectId = :subjectId")
+    suspend fun updateInitialAttendance(subjectId: Int, present: Int, total: Int)
 
     @Delete
     suspend fun deleteSubject(schedule: Schedule)
@@ -59,6 +65,9 @@ interface ClassScheduleDao {
 
     @Query("SELECT * FROM class_schedule WHERE date = :date")
     fun getAllSchedulesForDate(date: String): Flow<List<ClassSchedule>>
+
+    @Query("SELECT * FROM class_schedule WHERE date = :date")
+    suspend fun getAllSchedulesForDateSync(date: String): List<ClassSchedule>
 
     @Query("SELECT * FROM class_schedule WHERE subjectOwnerId = :subjectId AND date BETWEEN :startDate AND :endDate ORDER BY date DESC")
     fun getAttendanceInRange(subjectId: Int, startDate: String, endDate: String): Flow<List<ClassSchedule>>

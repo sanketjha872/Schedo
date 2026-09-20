@@ -13,7 +13,7 @@
         </DropdownSelection>
         <DialogSelection />
       </SelectionState>
-      <SelectionState runConfigName="MoreOptionsScreen">
+      <SelectionState runConfigName="AttendanceSetupStep1Preview">
         <option name="selectionMode" value="DROPDOWN" />
         <DropdownSelection timestamp="2026-07-28T09:11:24.509632700Z">
           <Target type="DEFAULT_BOOT">
@@ -24,7 +24,7 @@
         </DropdownSelection>
         <DialogSelection />
       </SelectionState>
-      <SelectionState runConfigName="BunkAnalyticsPreview">
+      <SelectionState runConfigName="AttendanceSetupStep3Preview">
         <option name="selectionMode" value="DROPDOWN" />
         <DropdownSelection timestamp="2026-07-28T09:11:24.509632700Z">
           <Target type="DEFAULT_BOOT">
@@ -35,7 +35,7 @@
         </DropdownSelection>
         <DialogSelection />
       </SelectionState>
-      <SelectionState runConfigName="NameInputScreen">
+      <SelectionState runConfigName="AttendanceSetupStep4Preview">
         <option name="selectionMode" value="DROPDOWN" />
         <DropdownSelection timestamp="2026-07-28T09:11:24.509632700Z">
           <Target type="DEFAULT_BOOT">
@@ -46,7 +46,18 @@
         </DropdownSelection>
         <DialogSelection />
       </SelectionState>
-      <SelectionState runConfigName="HowToUseScreen">
+      <SelectionState runConfigName="AttendanceSetupStep2Preview">
+        <option name="selectionMode" value="DROPDOWN" />
+        <DropdownSelection timestamp="2026-07-28T09:11:24.509632700Z">
+          <Target type="DEFAULT_BOOT">
+            <handle>
+              <DeviceId pluginId="PhysicalDevice" identifier="serial=ZA223BQT4J" />
+            </handle>
+          </Target>
+        </DropdownSelection>
+        <DialogSelection />
+      </SelectionState>
+      <SelectionState runConfigName="ClassCompPreview">
         <option name="selectionMode" value="DROPDOWN" />
         <DropdownSelection timestamp="2026-07-28T09:11:24.509632700Z">
           <Target type="DEFAULT_BOOT">

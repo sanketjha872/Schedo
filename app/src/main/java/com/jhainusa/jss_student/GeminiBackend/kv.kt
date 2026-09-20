@@ -18,7 +18,7 @@ import java.util.concurrent.TimeUnit
 
 interface SupabaseApiService {
     @Multipart
-    @POST("super-action")
+    @POST("bright-responder")
     fun sendTimetable(
         @Part("user_id") userId: String, // Changed from RequestBody to String
         @Part("username") username: String?,

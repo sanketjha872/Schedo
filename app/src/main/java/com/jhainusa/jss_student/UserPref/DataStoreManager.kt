@@ -4,6 +4,7 @@ import android.content.Context
 import android.provider.Settings
 import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
+import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import kotlinx.coroutines.flow.Flow
@@ -22,6 +23,10 @@ object UserPreferences {
     private val USER_ID_KEY = stringPreferencesKey("user_id")
     private val NOTIFICATIONS_ENABLED_KEY = booleanPreferencesKey("notifications_enabled")
     private val DARK_MODE_KEY = booleanPreferencesKey("dark_mode")
+
+    private val INITIAL_ATTENDANCE_DONE_KEY = booleanPreferencesKey("initial_attendance_done")
+    private val SEMESTER_START_DATE_KEY = stringPreferencesKey("semester_start_date")
+    private val SEMESTER_END_DATE_KEY = stringPreferencesKey("semester_end_date")
 
     private val BUNK_TOOLTIP_SHOWN_KEY = booleanPreferencesKey("bunk_tooltip_shown")
     private val SWIPE_TOOLTIP_SHOWN_KEY = booleanPreferencesKey("swipe_tooltip_shown")
@@ -150,6 +155,42 @@ object UserPreferences {
     fun isOnboardingCompleted(context: Context): Flow<Boolean> {
         return context.dataStore.data.map { prefs ->
             prefs[ONBOARDING_COMPLETED_KEY] ?: false
+        }
+    }
+
+    suspend fun setInitialAttendanceDone(context: Context, done: Boolean) {
+        context.dataStore.edit { prefs ->
+            prefs[INITIAL_ATTENDANCE_DONE_KEY] = done
+        }
+    }
+
+    fun isInitialAttendanceDone(context: Context): Flow<Boolean> {
+        return context.dataStore.data.map { prefs ->
+            prefs[INITIAL_ATTENDANCE_DONE_KEY] ?: false
+        }
+    }
+
+    suspend fun setSemesterStartDate(context: Context, date: String) {
+        context.dataStore.edit { prefs ->
+            prefs[SEMESTER_START_DATE_KEY] = date
+        }
+    }
+
+    fun getSemesterStartDate(context: Context): Flow<String?> {
+        return context.dataStore.data.map { prefs ->
+            prefs[SEMESTER_START_DATE_KEY]
+        }
+    }
+
+    suspend fun setSemesterEndDate(context: Context, date: String) {
+        context.dataStore.edit { prefs ->
+            prefs[SEMESTER_END_DATE_KEY] = date
+        }
+    }
+
+    fun getSemesterEndDate(context: Context): Flow<String?> {
+        return context.dataStore.data.map { prefs ->
+            prefs[SEMESTER_END_DATE_KEY]
         }
     }
 }

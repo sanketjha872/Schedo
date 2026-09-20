@@ -1,6 +1,5 @@
 package com.jhainusa.jss_student
 
-import android.content.Intent
 import android.net.Uri
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -29,17 +28,20 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBackIosNew
 import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.WorkspacePremium
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
 import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TextField
 import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.runtime.Composable
@@ -58,7 +60,6 @@ import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.Font
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -66,7 +67,6 @@ import androidx.compose.runtime.livedata.observeAsState
 import com.jhainusa.jss_student.RoomDatabase.MainVIewModel
 import com.jhainusa.jss_student.UserPref.NameViewModel
 import com.jhainusa.jss_student.ui.theme.SubtitleGray
-import com.jhainusa.jss_student.ui.theme.black1a
 
 
 @Composable
@@ -79,11 +79,12 @@ fun MoreOptionsScreen(
     val subjectsList by mainViewModel.getAll().observeAsState(emptyList())
     val userName by nameViewModel.nameFlow.collectAsState()
     val notificationsEnabled by nameViewModel.notificationsEnabledFlow.collectAsState()
-    val systemInDarkTheme = androidx.compose.foundation.isSystemInDarkTheme()
+    val systemInDarkTheme = isSystemInDarkTheme()
     val darkModeEnabled by nameViewModel.darkModeFlow.collectAsState(initial = systemInDarkTheme)
     val desiredAttendance by nameViewModel.desiredAttendanceFlow.collectAsState()
     val showFeedbackDialog by moreOptionsViewModel.showFeedbackDialog.collectAsState()
     val showAttendanceDialog by moreOptionsViewModel.showAttendanceDialog.collectAsState()
+    val showNameDialog by moreOptionsViewModel.showNameDialog.collectAsState()
     val feedbackType by moreOptionsViewModel.feedbackType.collectAsState()
     val context = LocalContext.current
 
@@ -101,8 +102,8 @@ fun MoreOptionsScreen(
 
     Scaffold(
         containerColor = MaterialTheme.colorScheme.background,
-        modifier = Modifier.statusBarsPadding(),
-        topBar = { MoreOptionsTopBar(onBackClick) }
+        topBar = { MoreOptionsTopBar(onBackClick) },
+        modifier = Modifier.statusBarsPadding()
     ) { paddingValues ->
         LazyColumn(
             modifier = Modifier
@@ -133,6 +134,18 @@ fun MoreOptionsScreen(
                 SettingsSection(
                     title = "Support & Preferences",
                     items = listOf(
+                        MoreOptionItem(
+                            title = "Name",
+                            onClick = { moreOptionsViewModel.showNameDialog() }
+                        ) {
+                            Text(
+                                text = userName ?: "Not Set",
+                                fontSize = 18.sp,
+                                fontFamily = FontFamily(Font(R.font.plusjakartasansbold)),
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.onBackground
+                            )
+                        },
                         MoreOptionItem(
                             title = "Desired Attendance",
                             onClick = { moreOptionsViewModel.showAttendanceDialog() }
@@ -242,6 +255,71 @@ fun MoreOptionsScreen(
             }
         )
     }
+
+    if (showNameDialog) {
+        NameEditDialog(
+            currentName = userName ?: "",
+            onDismiss = { moreOptionsViewModel.dismissNameDialog() },
+            onConfirm = { newName ->
+                moreOptionsViewModel.saveName(nameViewModel, newName)
+            }
+        )
+    }
+}
+
+@Composable
+fun NameEditDialog(
+    currentName: String,
+    onDismiss: () -> Unit,
+    onConfirm: (String) -> Unit
+) {
+    var text by remember { mutableStateOf(currentName) }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = {
+            Text(
+                "Change Name",
+                fontFamily = FontFamily(Font(R.font.plusjakartasansbold)),
+                fontWeight = FontWeight.Bold
+            )
+        },
+        text = {
+            Column {
+                OutlinedTextField(
+                    value = text,
+                    onValueChange = { text = it },
+                    label = { Text("Name") },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(12.dp)
+                )
+            }
+        },
+        confirmButton = {
+            Button(
+                onClick = {
+                    if (text.isNotBlank()) {
+                        onConfirm(text)
+                    }
+                },
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = MaterialTheme.colorScheme.primary,
+                    contentColor = MaterialTheme.colorScheme.onPrimary
+                ),
+                shape = RoundedCornerShape(8.dp)
+            ) {
+                Text("Save")
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Cancel", color = MaterialTheme.colorScheme.primary)
+            }
+        },
+        shape = RoundedCornerShape(16.dp),
+        containerColor = MaterialTheme.colorScheme.surface
+    )
 }
 
 @Composable
