@@ -209,7 +209,7 @@ fun BunkAnalyticsContent(
             }
         },
         modifier = Modifier
-            .background(Color.White)
+            .background(MaterialTheme.colorScheme.background)
             .statusBarsPadding(),
         containerColor = MaterialTheme.colorScheme.background,
     ) { innerPadding ->
@@ -547,7 +547,7 @@ fun RangeSummarySection(rate: String, attended: String, missed: String, total: S
                             modifier = Modifier.padding(top = 2.dp)
                         ) {
                             Text(
-                                text = if (isSubjectSpecific) "Subject Attendance Range" else "Previous Attendance",
+                                text = "Previous Attendance",
                                 fontSize = 10.sp,
                                 fontFamily = plusJak,
                                 fontWeight = FontWeight.Bold,

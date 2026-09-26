@@ -133,8 +133,20 @@ object UserPreferences {
     suspend fun skipOnboarding(context: Context) {
         context.dataStore.edit { prefs ->
             prefs[ONBOARDING_COMPLETED_KEY] = true
+            prefs[INITIAL_ATTENDANCE_DONE_KEY] = true
             prefs[DESIRED_ATTENDANCE_DONE] = true
             prefs[DESIRED_ATTENDANCE_KEY] = "75.0"
+        }
+    }
+
+    suspend fun completeOnboarding(context: Context) {
+        context.dataStore.edit { prefs ->
+            prefs[ONBOARDING_COMPLETED_KEY] = true
+            // Migration logic: If INITIAL_ATTENDANCE_DONE_KEY isn't set, 
+            // we set it to false for new users so they are prompted for it.
+            if (prefs[INITIAL_ATTENDANCE_DONE_KEY] == null) {
+                prefs[INITIAL_ATTENDANCE_DONE_KEY] = false
+            }
         }
     }
 
@@ -166,7 +178,9 @@ object UserPreferences {
 
     fun isInitialAttendanceDone(context: Context): Flow<Boolean> {
         return context.dataStore.data.map { prefs ->
-            prefs[INITIAL_ATTENDANCE_DONE_KEY] ?: false
+            // Migration logic: If INITIAL_ATTENDANCE_DONE_KEY is not set,
+            // check if onboarding was already completed in a previous version.
+            prefs[INITIAL_ATTENDANCE_DONE_KEY] ?: (prefs[ONBOARDING_COMPLETED_KEY] ?: false)
         }
     }
 
@@ -194,4 +208,3 @@ object UserPreferences {
         }
     }
 }
-

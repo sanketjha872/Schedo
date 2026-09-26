@@ -103,7 +103,8 @@ fun MoreOptionsScreen(
     Scaffold(
         containerColor = MaterialTheme.colorScheme.background,
         topBar = { MoreOptionsTopBar(onBackClick) },
-        modifier = Modifier.statusBarsPadding()
+        modifier = Modifier.background(MaterialTheme.colorScheme.background)
+            .statusBarsPadding()
     ) { paddingValues ->
         LazyColumn(
             modifier = Modifier

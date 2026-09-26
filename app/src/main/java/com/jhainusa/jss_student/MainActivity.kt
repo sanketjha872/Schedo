@@ -154,7 +154,7 @@ class MainActivity : ComponentActivity() {
                         viewModel = viewModel,
                         onFinish = {
                             scope.launch {
-                                UserPreferences.setOnboardingCompleted(context, true)
+                                UserPreferences.completeOnboarding(context)
                                 navController.navigate("attendance_setup") {
                                     popUpTo("onboarding") { inclusive = true }
                                 }
@@ -163,7 +163,6 @@ class MainActivity : ComponentActivity() {
                         onSkip = {
                             scope.launch {
                                 UserPreferences.skipOnboarding(context)
-                                UserPreferences.setInitialAttendanceDone(context, true)
                                 navController.navigate("AllScreenNav") {
                                     popUpTo("onboarding") { inclusive = true }
                                 }

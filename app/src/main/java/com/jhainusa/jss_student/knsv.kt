@@ -21,11 +21,13 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.Button
@@ -69,13 +71,17 @@ import com.jhainusa.jss_student.RoomDatabase.MainVIewModel
 import com.jhainusa.jss_student.RoomDatabase.Schedule
 import java.util.Locale
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.TopAppBar
 import androidx.compose.material3.DatePickerDialog
 import androidx.compose.material3.DateRangePicker
+import androidx.compose.material3.Scaffold
 import androidx.compose.ui.draw.blur
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.TextStyle
 import com.jhainusa.jss_student.UserPref.UserPreferences
 import kotlinx.coroutines.launch
 import java.time.LocalDate
@@ -209,197 +215,22 @@ fun AddClassScreen(viewModel: MainVIewModel, subjectId: Int = -1, onDismiss: () 
 
     val days = listOf("Mon", "Tue", "Wed", "Thu", "Fri", "Sat")
 
-    LazyColumn(
-        modifier = Modifier.fillMaxWidth().background(
-            MaterialTheme.colorScheme.background
-        )
-            .padding(16.dp)
-            .statusBarsPadding(),
-        verticalArrangement = Arrangement.Top,
-
-    ) {
-        item {
-            Text(
-                text = if (scheduleToEdit == null) "Add New Class" else "Edit Class",
-                fontFamily = jakartaFont,
-                fontSize = 24.sp,
-                fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.primary
-            )
-            Spacer(modifier = Modifier.height(20.dp))
-        }
-
-        item {
-            inputBox("Subject Name", subject, onValueChange = { subject = it })
-        }
-
-        item {
-            inputBox("Teacher Name", teacher, onValueChange = { teacher = it })
-        }
-
-        item {
-            inputBox("Room Number", roomNo, onValueChange = { roomNo = it })
-        }
-
-        item {
-            AttendanceCard(
-                attended = initialPresent,
-                total = initialTotal,
-                startDate = if (initialStartDate.isNotBlank()) initialStartDate else semesterStart,
-                endDate = if (initialEndDate.isNotBlank()) initialEndDate else semesterEnd,
-                onClick = { showAttendanceDialog = true }
-            )
-            Spacer(modifier = Modifier.height(16.dp))
-        }
-
-        item {
-            Text(
-                text = "Select Days & Timings", 
-                fontFamily = jakartaFont, 
-                fontWeight = FontWeight.SemiBold, 
-                fontSize = 16.sp,
-                color = MaterialTheme.colorScheme.primary
-            )
-            Spacer(modifier = Modifier.height(12.dp))
-        }
-
-        items(days.size) { index ->
-            val day = days[index]
-            val key = day
-            val isSelected = selectedDays.containsKey(key)
-            
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(bottom = 12.dp) 
-                    .clip(RoundedCornerShape(16.dp))
-                    .background(if (isSelected) MaterialTheme.colorScheme.surfaceTint else Color.Transparent)
-                    .border(
-                        1.dp, 
-                        if (isSelected) MaterialTheme.colorScheme.onBackground.copy(0.12f) else OutlineColor,
-                        RoundedCornerShape(16.dp)
-                    )
-                    .clickable {
-                        if (!isSelected) {
-                            selectedDays[key] = androidx.compose.runtime.mutableStateListOf("09:00 AM" to "10:00 AM")
-                        }
-                    }
-                    .padding(12.dp)
+    Scaffold(
+        topBar = {
+            TopAppBar(
+                elevation = 0.dp,
+                backgroundColor = MaterialTheme.colorScheme.background
             ) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Box(
-                        modifier = Modifier
-                            .size(45.dp)
-                            .clip(CircleShape)
-                            .background(if (isSelected) MaterialTheme.colorScheme.onBackground else MaterialTheme.colorScheme.background)
-                            .border(1.dp, if (isSelected) MaterialTheme.colorScheme.onBackground else OutlineColor, CircleShape),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Text(
-                            text = day,
-                            color = if (isSelected) MaterialTheme.colorScheme.background else MaterialTheme.colorScheme.onBackground,
-                            fontFamily = jakartaFont,
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 14.sp
-                        )
-                    }
-
-                    Spacer(modifier = Modifier.width(12.dp))
-                    
                     Text(
-                        text = if (isSelected) "Selected" else "Tap to select",
+                        text = if (scheduleToEdit == null) "Add New Subject" else "Edit Subject",
                         fontFamily = jakartaFont,
-                        fontSize = 14.sp,
-                        color = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.primary,
-                        modifier = Modifier.weight(1f)
-                    )
-                    
-                    if (isSelected) {
-                        IconButton(
-                            onClick = { selectedDays.remove(key) },
-                            modifier = Modifier.size(24.dp)
-                        ) {
-                            Icon(
-                                painter = painterResource(R.drawable.cross),
-                                contentDescription = "Deselect",
-                                tint = MaterialTheme.colorScheme.onBackground,
-                                modifier = Modifier.size(24.dp)
-                            )
-                        }
-                    }
-                }
-
-                if (isSelected) {
-                    Spacer(modifier = Modifier.height(12.dp))
-                    val timeSlots = selectedDays[key]!!
-                    
-                    timeSlots.forEachIndexed { index, (start, end) ->
-                        Row(
-                            modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp),
-                            horizontalArrangement = Arrangement.spacedBy(12.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            TimeSelectionBox(
-                                label = "Start",
-                                time = start,
-                                modifier = Modifier.weight(1f),
-                                onClick = {
-                                    currentPickingKey = key
-                                    currentPickingIndex = index
-                                    isPickingStartTime = true
-                                    showTimePicker = true
-                                }
-                            )
-
-                            TimeSelectionBox(
-                                label = "End",
-                                time = end,
-                                modifier = Modifier.weight(1f),
-                                onClick = {
-                                    currentPickingKey = key
-                                    currentPickingIndex = index
-                                    isPickingStartTime = false
-                                    showTimePicker = true
-                                }
-                            )
-                            
-                            if (timeSlots.size > 1) {
-                                IconButton(
-                                    onClick = { timeSlots.removeAt(index) },
-                                    modifier = Modifier.size(24.dp)
-                                ) {
-                                    Icon(
-                                        painter = painterResource(R.drawable.delete),
-                                        contentDescription = "Remove Period",
-                                        tint = Color.Red.copy(alpha = 0.7f),
-                                        modifier = Modifier.size(18.dp)
-                                    )
-                                }
-                            }
-                        }
-                    }
-                    
-                    Text(
-                        text = " + Add another period",
-                        color = MaterialTheme.colorScheme.primary,
-                        fontSize = 12.sp,
+                        fontSize = 24.sp,
                         fontWeight = FontWeight.Bold,
-                        fontFamily = jakartaFont,
-                        modifier = Modifier
-                            .clickable {
-                                timeSlots.add("10:00 AM" to "11:00 AM")
-                            }
-                            .padding(vertical = 4.dp)
+                        color = MaterialTheme.colorScheme.primary
                     )
-                }
             }
-        }
-
-        item {
-            Spacer(modifier = Modifier.height(12.dp))
+        },
+        bottomBar = {
             val schedules = selectedDays.flatMap { (day, list) ->
                 list.map { timingPair ->
                     DaySchedule(day, "${timingPair.first} - ${timingPair.second}")
@@ -415,7 +246,8 @@ fun AddClassScreen(viewModel: MainVIewModel, subjectId: Int = -1, onDismiss: () 
                                 teacher = teacher,
                                 roomNo = roomNo,
                                 scheduleday = schedules,
-                                color = scheduleToEdit?.color ?: assignColor(subject).value.toLong(),
+                                color = scheduleToEdit?.color
+                                    ?: assignColor(subject).value.toLong(),
                                 totalClasses = scheduleToEdit?.totalClasses ?: 0,
                                 initialPresent = initialPresent.toIntOrNull() ?: 0,
                                 initialTotal = initialTotal.toIntOrNull() ?: 0,
@@ -439,64 +271,248 @@ fun AddClassScreen(viewModel: MainVIewModel, subjectId: Int = -1, onDismiss: () 
                 elevation = ButtonDefaults.elevation(0.dp, 0.dp)
             ) {
                 Text(
-                    text = if (scheduleToEdit == null) "Save Class Schedule" else "Update Schedule", 
-                    fontFamily = jakartaFont, 
+                    text = if (scheduleToEdit == null) "Save Class Schedule" else "Update Schedule",
+                    fontFamily = jakartaFont,
                     color = MaterialTheme.colorScheme.background,
                     fontWeight = FontWeight.Bold,
                     fontSize = 16.sp
                 )
             }
-            Spacer(modifier = Modifier.height(24.dp)) 
-        }
-    }
+        },
 
-    if (showTimePicker && currentPickingKey != null) {
-        val timeSlots = selectedDays[currentPickingKey!!]!!
-        val currentPair = timeSlots[currentPickingIndex]
-        val initialTimeStr = if (isPickingStartTime) currentPair.first else currentPair.second
-        
-        val hour = try { 
-            var h = initialTimeStr.split(":")[0].toInt()
-            if (initialTimeStr.contains("PM") && h < 12) h += 12
-            if (initialTimeStr.contains("AM") && h == 12) h = 0
-            h
-        } catch (e: Exception) { 12 }
-        
-        val minute = try { initialTimeStr.split(":")[1].split(" ")[0].toInt() } catch (e: Exception) { 0 }
+        modifier = Modifier.fillMaxWidth().background(
+            MaterialTheme.colorScheme.background
+        )
+            .statusBarsPadding().navigationBarsPadding().padding(start = 16.dp, end = 16.dp),
+    ) { paddingValues ->
+        Column(
+            modifier = Modifier.padding(paddingValues)
+                .verticalScroll(rememberScrollState())
+        ) {
 
-        TimePickerDialog(
-            initialHour = hour,
-            initialMinute = minute,
-            onTimeSelected = { h, m ->
-                val formatted = formatTime(h, m)
-                val pair = timeSlots[currentPickingIndex]
-                if (isPickingStartTime) {
-                    timeSlots[currentPickingIndex] = formatted to pair.second
-                } else {
-                    timeSlots[currentPickingIndex] = pair.first to formatted
+            inputBox("Subject Name", subject, onValueChange = { subject = it })
+
+            inputBox("Teacher Name", teacher, onValueChange = { teacher = it })
+
+            inputBox("Room Number", roomNo, onValueChange = { roomNo = it })
+
+            AttendanceCard(
+                attended = initialPresent,
+                total = initialTotal,
+                startDate = if (initialStartDate.isNotBlank()) initialStartDate else semesterStart,
+                endDate = if (initialEndDate.isNotBlank()) initialEndDate else semesterEnd,
+                onClick = { showAttendanceDialog = true }
+            )
+            Spacer(modifier = Modifier.height(16.dp))
+
+            Text(
+                text = "Select Days & Timings",
+                fontFamily = jakartaFont,
+                fontWeight = FontWeight.SemiBold,
+                fontSize = 16.sp,
+                color = MaterialTheme.colorScheme.primary
+            )
+            Spacer(modifier = Modifier.height(12.dp))
+
+            days.forEach { day ->
+                val key = day
+                val isSelected = selectedDays.containsKey(key)
+
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(bottom = 12.dp)
+                        .clip(RoundedCornerShape(16.dp))
+                        .background(if (isSelected) MaterialTheme.colorScheme.surfaceTint else Color.Transparent)
+                        .border(
+                            1.dp,
+                            if (isSelected) MaterialTheme.colorScheme.onBackground.copy(0.12f) else OutlineColor,
+                            RoundedCornerShape(16.dp)
+                        )
+                        .clickable {
+                            if (!isSelected) {
+                                selectedDays[key] =
+                                    androidx.compose.runtime.mutableStateListOf("09:00 AM" to "10:00 AM")
+                            }
+                        }
+                        .padding(12.dp)
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .size(45.dp)
+                                .clip(CircleShape)
+                                .background(if (isSelected) MaterialTheme.colorScheme.onBackground else MaterialTheme.colorScheme.background)
+                                .border(
+                                    1.dp,
+                                    if (isSelected) MaterialTheme.colorScheme.onBackground else OutlineColor,
+                                    CircleShape
+                                ),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(
+                                text = day,
+                                color = if (isSelected) MaterialTheme.colorScheme.background else MaterialTheme.colorScheme.onBackground,
+                                fontFamily = jakartaFont,
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 14.sp
+                            )
+                        }
+
+                        Spacer(modifier = Modifier.width(12.dp))
+
+                        Text(
+                            text = if (isSelected) "Selected" else "Tap to select",
+                            fontFamily = jakartaFont,
+                            fontSize = 14.sp,
+                            color = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.weight(1f)
+                        )
+
+                        if (isSelected) {
+                            IconButton(
+                                onClick = { selectedDays.remove(key) },
+                                modifier = Modifier.size(24.dp)
+                            ) {
+                                Icon(
+                                    painter = painterResource(R.drawable.cross),
+                                    contentDescription = "Deselect",
+                                    tint = MaterialTheme.colorScheme.onBackground,
+                                    modifier = Modifier.size(24.dp)
+                                )
+                            }
+                        }
+                    }
+
+                    if (isSelected) {
+                        Spacer(modifier = Modifier.height(12.dp))
+                        val timeSlots = selectedDays[key]!!
+
+                        timeSlots.forEachIndexed { index, (start, end) ->
+                            val isInvalid = start != null &&
+                                    end != null &&
+                                    start >= end
+                            Row(
+                                modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp),
+                                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                TimeSelectionBox(
+                                    label = "Start",
+                                    time = start,
+                                    modifier = Modifier.weight(1f),
+                                    onClick = {
+                                        currentPickingKey = key
+                                        currentPickingIndex = index
+                                        isPickingStartTime = true
+                                        showTimePicker = true
+                                    }
+                                )
+
+                                TimeSelectionBox(
+                                    label = "End",
+                                    time = end,
+                                    modifier = Modifier.weight(1f),
+                                    onClick = {
+                                        currentPickingKey = key
+                                        currentPickingIndex = index
+                                        isPickingStartTime = false
+                                        showTimePicker = true
+                                    }
+                                )
+
+                                if (timeSlots.size > 1) {
+                                    IconButton(
+                                        onClick = { timeSlots.removeAt(index) },
+                                        modifier = Modifier.size(24.dp)
+                                    ) {
+                                        Icon(
+                                            painter = painterResource(R.drawable.delete),
+                                            contentDescription = "Remove Period",
+                                            tint = Color.Red.copy(alpha = 0.7f),
+                                            modifier = Modifier.size(18.dp)
+                                        )
+                                    }
+                                }
+                            }
+                        }
+
+                        Text(
+                            text = " + Add another period",
+                            color = MaterialTheme.colorScheme.primary,
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.Bold,
+                            fontFamily = jakartaFont,
+                            modifier = Modifier
+                                .clickable {
+                                    timeSlots.add("10:00 AM" to "11:00 AM")
+                                }
+                                .padding(vertical = 4.dp)
+                        )
+                    }
                 }
-                showTimePicker = false
-            },
-            onDismiss = { showTimePicker = false }
-        )
-    }
-
-    if (showAttendanceDialog) {
-        AttendanceEditDialog(
-            initialAttended = initialPresent,
-            initialTotal = initialTotal,
-            initialStart = if (initialStartDate.isNotBlank()) initialStartDate else semesterStart,
-            initialEnd = if (initialEndDate.isNotBlank()) initialEndDate else semesterEnd,
-            onDismiss = { showAttendanceDialog = false },
-            onConfirm = { attended, total, start, end ->
-                initialPresent = attended
-                initialTotal = total
-                initialStartDate = start ?: ""
-                initialEndDate = end ?: ""
-                showAttendanceDialog = false
             }
-        )
-    }
+
+                Spacer(modifier = Modifier.height(12.dp))
+            }
+        }
+
+        if (showTimePicker && currentPickingKey != null) {
+            val timeSlots = selectedDays[currentPickingKey!!]!!
+            val currentPair = timeSlots[currentPickingIndex]
+            val initialTimeStr = if (isPickingStartTime) currentPair.first else currentPair.second
+
+            val hour = try {
+                var h = initialTimeStr.split(":")[0].toInt()
+                if (initialTimeStr.contains("PM") && h < 12) h += 12
+                if (initialTimeStr.contains("AM") && h == 12) h = 0
+                h
+            } catch (e: Exception) {
+                12
+            }
+
+            val minute = try {
+                initialTimeStr.split(":")[1].split(" ")[0].toInt()
+            } catch (e: Exception) {
+                0
+            }
+
+            TimePickerDialog(
+                initialHour = hour,
+                initialMinute = minute,
+                onTimeSelected = { h, m ->
+                    val formatted = formatTime(h, m)
+                    val pair = timeSlots[currentPickingIndex]
+                    if (isPickingStartTime) {
+                        timeSlots[currentPickingIndex] = formatted to pair.second
+                    } else {
+                        timeSlots[currentPickingIndex] = pair.first to formatted
+                    }
+                    showTimePicker = false
+                },
+                onDismiss = { showTimePicker = false }
+            )
+        }
+
+        if (showAttendanceDialog) {
+            AttendanceEditDialog(
+                initialAttended = initialPresent,
+                initialTotal = initialTotal,
+                initialStart = if (initialStartDate.isNotBlank()) initialStartDate else semesterStart,
+                initialEnd = if (initialEndDate.isNotBlank()) initialEndDate else semesterEnd,
+                onDismiss = { showAttendanceDialog = false },
+                onConfirm = { attended, total, start, end ->
+                    initialPresent = attended
+                    initialTotal = total
+                    initialStartDate = start ?: ""
+                    initialEndDate = end ?: ""
+                    showAttendanceDialog = false
+                }
+            )
+        }
 }
 
 @RequiresApi(Build.VERSION_CODES.O)
@@ -591,10 +607,10 @@ fun AttendanceEditDialog(
                 fontWeight = FontWeight.Bold,
                 fontSize = 20.sp,
                 modifier = Modifier.padding(bottom = 20.dp),
-                color = Color(0xFF0F172A)
+                color = MaterialTheme.colorScheme.primary
             )
 
-            androidx.compose.material.OutlinedTextField(
+            OutlinedTextField(
                 value = attended,
                 onValueChange = { 
                     if (it.all { char -> char.isDigit() }) {
@@ -602,20 +618,25 @@ fun AttendanceEditDialog(
                         errorMessage = null
                     }
                 },
-                label = { Text("Classes Attended", fontFamily = plusJak) },
+                label = { Text("Classes Attended", fontFamily = plusJak,color = MaterialTheme.colorScheme.primary) },
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(12.dp),
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                 colors = TextFieldDefaults.outlinedTextFieldColors(
-                    focusedBorderColor = PrimaryColor,
+                    focusedBorderColor = MaterialTheme.colorScheme.primary,
                     unfocusedBorderColor = OutlineColor,
-                    cursorColor = PrimaryColor
+                    cursorColor = Color.Gray
+                ),
+                textStyle = TextStyle(
+                    color = MaterialTheme.colorScheme.primary,
+                    fontFamily = plusJak,
+                    fontWeight = FontWeight.SemiBold
                 )
             )
             
             Spacer(modifier = Modifier.height(12.dp))
             
-            androidx.compose.material.OutlinedTextField(
+            OutlinedTextField(
                 value = total,
                 onValueChange = { 
                     if (it.all { char -> char.isDigit() }) {
@@ -623,14 +644,19 @@ fun AttendanceEditDialog(
                         errorMessage = null
                     }
                 },
-                label = { Text("Total Classes", fontFamily = plusJak) },
+                label = { Text("Total Classes", fontFamily = plusJak,color = MaterialTheme.colorScheme.primary) },
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(12.dp),
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                 colors = TextFieldDefaults.outlinedTextFieldColors(
-                    focusedBorderColor = PrimaryColor,
+                    focusedBorderColor = MaterialTheme.colorScheme.primary,
                     unfocusedBorderColor = OutlineColor,
-                    cursorColor = PrimaryColor
+                    cursorColor = Color.Gray
+                ),
+                textStyle = TextStyle(
+                    color = MaterialTheme.colorScheme.primary,
+                    fontFamily = plusJak,
+                    fontWeight = FontWeight.SemiBold
                 )
             )
 
@@ -693,6 +719,8 @@ fun AttendanceEditDialog(
                     val totalInt = total.toIntOrNull() ?: 0
                     if (attendedInt > totalInt) {
                         errorMessage = "Attended classes cannot be more than total classes"
+                    } else if (totalInt > 0 && (startDate.isNullOrBlank() || endDate.isNullOrBlank())) {
+                        errorMessage = "Please select the previous class range"
                     } else {
                         onConfirm(attended, total, startDate, endDate)
                     }
@@ -889,7 +917,7 @@ fun TimeSelectionBox(
         ) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Icon(
-                    painter = androidx.compose.ui.res.painterResource(R.drawable.calendar_svgrepo_com),
+                    painter = painterResource(R.drawable.calendar_svgrepo_com),
                     contentDescription = null,
                     tint = MaterialTheme.colorScheme.onSurface,
                     modifier = Modifier.size(16.dp)
